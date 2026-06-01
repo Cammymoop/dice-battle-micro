@@ -4,6 +4,12 @@ M.Enemy = class extends Phaser.GameObjects.Container
     constructor(scene) {
         super(scene);
         this.sprites = {}
+        this.homePos = M.Vec2.ZERO;
+    }
+
+    setHomePos(newHomePos) {
+        this.setPosVec(newHomePos);
+        this.homePos = new M.Vec2(newHomePos.x, newHomePos.y);
     }
 
     addToDisplayUpdate() {
@@ -82,4 +88,55 @@ M.Goblin = class extends M.Enemy
 
 }
 
-console.log(M);
+M.BombGnome = class extends M.Enemy
+{
+    constructor(scene) {
+        super(scene);
+        this.anim_interval = 320;
+        this.anim_timer = 0;
+        this.total_time = 0;
+
+        this.current_animation = 1;
+        this.anim_state = {};
+
+        this.arm_speed = 200 + Math.random() * 20;
+        this.arm_angle_delta = (Math.PI / 6);
+
+        this.addSprite("body", M.Vec2.ZERO, "bomb_gnome", 0);
+        this.addSprite("arm", M.Vec2.ZERO, "bomb_gnome", 2);
+        this.addSprite("bomb", M.Vec2.ZERO, "bomb_gnome", 4);
+        this.addSprite("head", M.Vec2.ZERO, "bomb_gnome", 6);
+    }
+
+    preUpdate (t, dt) {
+        this.total_time += dt;
+        this.animUpdate(dt);
+
+        this.anim_timer += dt;
+        if (this.anim_timer > this.anim_interval) {
+            this.anim_timer = 0;
+            this.animInterval();
+        }
+    }
+
+    animUpdate (dt) {
+        const arm = this.sprites.arm;
+        if (arm) {
+            arm.rotation = this.arm_angle_delta * (
+                Math.cos(this.total_time / this.arm_speed) / 2 - 0.5
+            );
+        }
+    }
+
+    animInterval () {
+        switch (this.current_animation) {
+            case 1:
+                const head = this.sprites.head;
+                if (head) {
+                    head.y = head.y > 0 ? 0 : 1;
+                }
+                break;
+        }
+    }
+
+}
