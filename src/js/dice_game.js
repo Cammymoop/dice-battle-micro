@@ -3,8 +3,8 @@ function randOffset(size) {
     return (Math.random() - 0.5) * 2 * size;
 }
 
-const ROLL_TOTAL = 900;
-const ROLL_ONCE = 70;
+const ROLL_TOTAL = 400;
+const ROLL_ONCE = 60;
 
 M.DiceGame = class extends Phaser.Scene
 {
@@ -56,17 +56,22 @@ M.DiceGame = class extends Phaser.Scene
         const numDice = 3;
         const diceSpacing = 52;
         const center = this.screenCenterPos();
+        console.log("center (vertical): " + center.y);
         this.allDice = [];
         for (var i = 0; i < numDice; i++) {
             const xPos = center.x - ((numDice - 1) * diceSpacing * 0.5) + (i * diceSpacing);
             const dice = this.add.sprite(xPos, center.y + 48, 'dices');
-            dice.addPosVec(new M.Vec2(randOffset(6), randOffset(16)));
             this.allDice.push(dice);
+
+            dice.addPosVec(new M.Vec2(randOffset(6), randOffset(16)));
+            dice.roll_target_pos = dice.getPosVec();
+            dice.addPosVec(new M.Vec2(randOffset(12), 30));
+            dice.roll_from_pos = dice.getPosVec();
 
             dice.rolling = true;
             dice.roll_anim_timer = 0;
             dice.roll_timer = 0;
-            dice.total_roll_time = ROLL_TOTAL + Math.random() * 300;
+            dice.total_roll_time = ROLL_TOTAL + Math.random() * 400;
         }
     }
 
@@ -92,9 +97,20 @@ M.DiceGame = class extends Phaser.Scene
                     dice.setFrame(rand_side);
                 }
 
+                const progress = dice.roll_timer / dice.total_roll_time;
+
+                const elevation = Math.sin(progress * Math.PI) * 38;
+                const rollVec = dice.roll_target_pos.clone().subtract(dice.roll_from_pos);
+                dice.setPosVec(dice.roll_from_pos);
+                dice.addPosVec(rollVec.scale(progress));
+                dice.addPosVec(M.Vec2.UP.clone().scale(elevation));
+
                 if (dice.roll_timer >= dice.total_roll_time) {
                     dice.total_roll_time = ROLL_TOTAL;
                     dice.rolling = false;
+                    console.log("finished rolling, progress: " + progress);
+                    console.log("target pos " + dice.roll_target_pos.x + ',' + dice.roll_target_pos.y);
+                    console.log("current pos " + dice.x + ',' + dice.y);
                     this.setupRolledDice(dice);
                 }
             }
