@@ -5,6 +5,7 @@ M.Enemy = class extends Phaser.GameObjects.Container
         super(scene);
         this.sprites = {}
         this.homePos = M.Vec2.ZERO;
+        this.hint = null;
     }
 
     setHomePos(newHomePos) {
@@ -15,6 +16,34 @@ M.Enemy = class extends Phaser.GameObjects.Container
     addToDisplayUpdate() {
         this.addToDisplayList();
         this.addToUpdateList();
+    }
+
+    setupHint(height, hintData) {
+        this.addHintData(hintData);
+        this.hint.y = -height;
+    }
+
+    addHintData(hintData) {
+        if (this.hint) {
+            this.remove(hint);
+            this.hint.destroy();
+        }
+        this.hint = new M.Hint(this.scene);
+        this.add(this.hint);
+        console.log("setting up hint with data: " + hintData);
+        this.hint.setup(hintData);
+    }
+
+    hideHint() {
+        if (this.hint) {
+            this.hint.visible = false;
+        }
+    }
+
+    showHint() {
+        if (this.hint) {
+            this.hint.visible = true;
+        }
     }
 
     removeSprite(spriteName) {
@@ -59,7 +88,10 @@ M.Goblin = class extends M.Enemy
         this.head_shift = 1;
 
         this.addSprite("body", M.Vec2.ZERO, "gob_small", 0);
-        this.addSprite("head", M.Vec2.ZERO, "gob_small", 1);
+        this.addSprite("head", M.Vec2.ZERO, "gob_small", 2);
+
+        this.setupHint(20, [["greater", "2", "", "arrow", "", "skull"]]);
+        this.hideHint();
     }
 
     preUpdate (t, dt) {
@@ -84,6 +116,10 @@ M.Goblin = class extends M.Enemy
                 }
                 break;
         }
+        if (false && this.hint) {
+            this.hint.visible = !this.hint.visible;
+            console.log("hint visibility: " + this.hint.visible);
+        }
     }
 
 }
@@ -101,11 +137,18 @@ M.BombGnome = class extends M.Enemy
 
         this.arm_speed = 200 + Math.random() * 20;
         this.arm_angle_delta = (Math.PI / 6);
+        this.snap = Math.PI / 64;
 
         this.addSprite("body", M.Vec2.ZERO, "bomb_gnome", 0);
         this.addSprite("arm", M.Vec2.ZERO, "bomb_gnome", 2);
         this.addSprite("bomb", M.Vec2.ZERO, "bomb_gnome", 4);
         this.addSprite("head", M.Vec2.ZERO, "bomb_gnome", 6);
+
+        this.setupHint(26, [
+            ["greater", "1", "", "arrow", "", "skull", ""],
+            ["greater", "4", "", "arrow", "", "skull", "boom"],
+        ]);
+        this.hideHint();
     }
 
     preUpdate (t, dt) {
@@ -122,9 +165,10 @@ M.BombGnome = class extends M.Enemy
     animUpdate (dt) {
         const arm = this.sprites.arm;
         if (arm) {
-            arm.rotation = this.arm_angle_delta * (
+            const smoothAngle = this.arm_angle_delta * (
                 Math.cos(this.total_time / this.arm_speed) / 2 - 0.5
             );
+            arm.rotation = Math.round(smoothAngle / this.snap) * this.snap;
         }
     }
 

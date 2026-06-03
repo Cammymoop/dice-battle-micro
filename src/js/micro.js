@@ -16,7 +16,6 @@ Phaser.GameObjects.GameObject.prototype.getPosVec = function () {
     return new M.Vec2(this.x, this.y);
 };
 
-
 M.WaitScene = class extends Phaser.Scene
 {
     preload()
@@ -24,26 +23,43 @@ M.WaitScene = class extends Phaser.Scene
         //this.load.image('image', 'assets/image.png');
         this.load.image('background', 'assets/background.png');
         this.load.image('goblin', 'assets/goblin.png');
-        this.load.image('red_circle', 'assets/red_circle.png');
 
-        this.load.spritesheet('gob_small', 'assets/gob_small_pieces.png', {
-            "frameWidth": 40, "frameHeight": 40,
+        this.load.image('explosion', 'assets/explosion.png');
+
+        this.load.image('red_circle', 'assets/red_circle.png');
+        this.load.image('target_arrow', 'assets/target_arrow.png');
+        this.load.image('reroll', 'assets/reroll.png');
+
+        this.load.image('arrow_icon', 'assets/arrow_icon.png');
+        this.load.image('boom_icon', 'assets/boom_icon.png');
+        this.load.image('dice_icon', 'assets/dice_icon.png');
+        this.load.image('equal_icon', 'assets/equal_icon.png');
+        this.load.image('greater_icon', 'assets/greater_icon.png');
+        this.load.image('guard_break_icon', 'assets/guard_break_icon.png');
+        this.load.image('less_icon', 'assets/less_icon.png');
+        this.load.image('skull_icon', 'assets/skull_icon.png');
+        this.load.spritesheet('number_icons', 'assets/number_icons.png', {
+            "frameWidth": 8, "frameHeight": 8,
+        });
+
+        this.load.spritesheet('gob_small', 'assets/gob_small.png', {
+            "frameWidth": 48, "frameHeight": 46,
         });
 
         this.load.spritesheet('bomb_gnome', 'assets/bomb_gnome.png', {
-            "frameWidth": 40, "frameHeight": 48,
+            "frameWidth": 42, "frameHeight": 50,
         });
 
         this.load.spritesheet('dices', 'assets/dices.png', {
-            "frameWidth": 30,
-            "frameHeight": 30,
-            "startFrame": 0,
-            "endFrame": 6,
+            "frameWidth": 30, "frameHeight": 30,
         });
     }
 
     create()
     {
+        this.textures.get("bomb_gnome").setFilter(Phaser.Textures.FilterMode.Nearest);
+
+        Phaser.Display.Canvas.CanvasInterpolation.setCrisp(this.game.canvas);
         window.parent.postMessage({op: "ready"});
     }
 
@@ -106,8 +122,9 @@ const config = {
     scene: [
         M.waitingScene, M.gameScene,
     ],
-    pixelArt: true,
-    antialias: true,
+    smoothPixelArt: true,
+    //antialias: false,
+    //antialiasGL: true,
 };
 
 const game = new Phaser.Game(config);

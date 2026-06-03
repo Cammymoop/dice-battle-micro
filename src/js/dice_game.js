@@ -1,5 +1,9 @@
 
 function randOffset(size) {
+    return Math.round((Math.random() - 0.5) * 2 * size);
+}
+
+function smoothRandOffset(size) {
     return (Math.random() - 0.5) * 2 * size;
 }
 
@@ -8,25 +12,6 @@ const ROLL_ONCE = 60;
 
 M.DiceGame = class extends Phaser.Scene
 {
-    preload()
-    {
-        //this.load.image('image', 'assets/image.png');
-        this.load.image('background', 'assets/background.png');
-        this.load.image('goblin', 'assets/goblin.png');
-        this.load.image('red_circle', 'assets/red_circle.png');
-
-        this.load.spritesheet('gob_small', 'assets/gob_small_pieces.png', {
-            "frameWidth": 40, "frameHeight": 40
-        });
-
-        this.load.spritesheet('dices', 'assets/dices.png', {
-            "frameWidth": 30,
-            "frameHeight": 30,
-            "startFrame": 0,
-            "endFrame": 6,
-        });
-    }
-
     create()
     {
         M.gameStarted();
@@ -37,42 +22,36 @@ M.DiceGame = class extends Phaser.Scene
         //};
         //this.anims.create(roll_anim);
 
+        this.diceIsActive = false;
+
         this.justClickedLMB = false;
         this.LMBWasClicked = false;
 
         this.bg = this.add.image(-30, -22, 'background').setOrigin(0, 0);
 
         this.circle = this.add.image(-6000, 0, "red_circle");
+        this.targetArrow = this.add.image(-6000, 0, "target_arrow"); 
+        this.targetArrow.setOrigin(1, 0.5);
+        this.targetArrow.depth = 2;
 
-        //this.gob = this.add.sprite(h_center, v_center - 30, 'gob_small');
+        this.allEnemies = [];
+
         this.gob = new M.Goblin(this);
         this.gob.setHomePos(this.screenCenterPos().add(new M.Vec2(-25, -12)));
         this.gob.addToDisplayUpdate();
+        this.allEnemies.push(this.gob);
 
         this.gnome = new M.BombGnome(this);
         this.gnome.setHomePos(this.screenCenterPos().add(new M.Vec2(25, -12)));
         this.gnome.addToDisplayUpdate();
+        this.allEnemies.push(this.gnome);
 
-        const numDice = 3;
-        const diceSpacing = 52;
-        const center = this.screenCenterPos();
-        console.log("center (vertical): " + center.y);
+        this.reroll = this.add.image(220, 132, "reroll");
+        this.reroll.depth = 1;
+
+        this.numDice = 3;
         this.allDice = [];
-        for (var i = 0; i < numDice; i++) {
-            const xPos = center.x - ((numDice - 1) * diceSpacing * 0.5) + (i * diceSpacing);
-            const dice = this.add.sprite(xPos, center.y + 48, 'dices');
-            this.allDice.push(dice);
-
-            dice.addPosVec(new M.Vec2(randOffset(6), randOffset(16)));
-            dice.roll_target_pos = dice.getPosVec();
-            dice.addPosVec(new M.Vec2(randOffset(12), 30));
-            dice.roll_from_pos = dice.getPosVec();
-
-            dice.rolling = true;
-            dice.roll_anim_timer = 0;
-            dice.roll_timer = 0;
-            dice.total_roll_time = ROLL_TOTAL + Math.random() * 400;
-        }
+        this.rollDice(this.numDice);
     }
 
     screenCenterPos() {
@@ -82,15 +61,16 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     update(t, dt) {
-        for (var dice of this.allDice) {
+        let pickableDice = 0;
+        for (let dice of this.allDice) {
             if (dice.rolling) {
                 dice.roll_timer += dt;
                 dice.roll_anim_timer += dt;
 
                 if (dice.roll_anim_timer > ROLL_ONCE) {
                     dice.roll_anim_timer = 0;
-                    var rand_side = Math.floor(Math.random() * 5);
-                    var cur_side = parseInt(dice.frame.name);
+                    let rand_side = Math.floor(Math.random() * 5);
+                    let cur_side = parseInt(dice.frame.name);
                     if (rand_side >= cur_side) {
                         rand_side += 1;
                     }
@@ -108,11 +88,12 @@ M.DiceGame = class extends Phaser.Scene
                 if (dice.roll_timer >= dice.total_roll_time) {
                     dice.total_roll_time = ROLL_TOTAL;
                     dice.rolling = false;
-                    console.log("finished rolling, progress: " + progress);
-                    console.log("target pos " + dice.roll_target_pos.x + ',' + dice.roll_target_pos.y);
-                    console.log("current pos " + dice.x + ',' + dice.y);
+                    pickableDice += 1;
+                    dice.setPosVec(dice.roll_target_pos);
                     this.setupRolledDice(dice);
                 }
+            } else {
+                pickableDice += 1;
             }
         }
 
@@ -128,13 +109,14 @@ M.DiceGame = class extends Phaser.Scene
             console.log("am click");
         }
 
-        var closestDice = null;
-        var minDist = 0;
-        for (var dice of this.allDice) {
+        let closestEnemy = null;
+        let closestDice = null;
+        let minDist = 0;
+        for (let dice of this.allDice) {
             if (dice.rolling) {
                 continue;
             }
-            var pointerDist = pVec.distance(dice.getPosVec());
+            let pointerDist = pVec.distance(dice.getPosVec());
             if (pointerDist > 49 || (!dice.emphasis && pointerDist > 45)) {
                 continue;
             } else if (!closestDice || pointerDist < minDist) {
@@ -142,11 +124,51 @@ M.DiceGame = class extends Phaser.Scene
                 closestDice = dice;
             }
         }
+        for (let enemy of this.allEnemies) {
+            let pointerDist = pVec.distance(enemy.getPosVec());
+            if (pointerDist > 49) {
+                continue;
+            } else if (!closestEnemy || pointerDist < minDist) {
+                minDist = pointerDist;
+                closestEnemy = enemy;
+            }
+        }
+
+        if (this.isOverReroll(pVec)) {
+            closestDice = null;
+            closestEnemy = null;
+            if (this.justClickedLMB && pickableDice > 0) {
+                this.rerollUnused();
+            }
+        }
+
+        // If close enough to click dice or enemy and any dice is already selected, only consider enemy
+        if (closestDice && closestEnemy && this.diceIsActive) {
+            closestDice = null;
+        }
+
         this.changeEmphasisDice(closestDice);
         if (this.justClickedLMB) {
-            if (closestDice) {
+            if (closestDice && (!closestEnemy || !this.diceIsActive)) {
                 this.changeActiveDice(closestDice);
             }
+        }
+        for (let enemy of this.allEnemies) {
+            if (closestEnemy && enemy === closestEnemy) {
+                enemy.showHint();
+            } else {
+                enemy.hideHint();
+            }
+        }
+
+        if (closestEnemy && this.diceIsActive) {
+            const activeDice = this.getActiveDice();
+            let diceToTargetVec = closestEnemy.getPosVec().subtract(activeDice.getPosVec());
+
+            this.targetArrow.setPosVec(closestEnemy.getPosVec());
+            this.targetArrow.rotation = diceToTargetVec.angle();
+        } else {
+            this.targetArrow.x = -6000
         }
     }
 
@@ -175,6 +197,16 @@ M.DiceGame = class extends Phaser.Scene
         }
     }
 
+    isOverReroll(pointerPos) {
+        const relPointer = pointerPos.clone().subtract(this.reroll.getPosVec());
+        if (Math.abs(relPointer.x) * 2 > this.reroll.width) {
+            return false;
+        } else if (Math.abs(relPointer.y) * 2 > this.reroll.height) {
+            return false;
+        }
+        return true;
+    }
+
     setDiceActive(dice) {
         dice.activeDice = true;
         dice.clearTint();
@@ -185,10 +217,12 @@ M.DiceGame = class extends Phaser.Scene
     }
     clearDiceActive(dice) {
         dice.activeDice = false;
+        this.circle.x = -6000;
+        this.diceIsActive = false;
     }
 
     changeEmphasisDice(newEmphasis) {
-        for (var dice of this.allDice) {
+        for (let dice of this.allDice) {
             if (dice === newEmphasis) {
                 this.setDiceEmphasis(dice);
             } else if (dice.emphasis) {
@@ -198,12 +232,59 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     changeActiveDice(newActiveDice) {
-        for (var dice of this.allDice) {
-            if (dice === newActiveDice) {
-                this.setDiceActive(dice);
-            } else if (dice.activeDice) {
+        for (let dice of this.allDice) {
+            if (dice !== newActiveDice) {
                 this.clearDiceActive(dice);
             }
+        }
+        this.diceIsActive = true;
+        this.setDiceActive(newActiveDice);
+    }
+
+    getActiveDice() {
+        if (!this.diceIsActive || this.allDice.length === 0) {
+            return null;
+        }
+        for (let dice of this.allDice) {
+            if (dice.activeDice) {
+                return dice;
+            }
+        }
+        return null;
+    }
+
+    clearAllDice() {
+        for (let dice of this.allDice) {
+            if (dice.activeDice) {
+                this.clearDiceActive(dice);
+            }
+            dice.destroy();
+        }
+        this.allDice = [];
+    }
+
+    rerollUnused() {
+        this.clearAllDice();
+        this.rollDice(this.numDice);
+    }
+
+    rollDice(num) {
+        const diceSpacing = 52;
+        const center = this.screenCenterPos();
+        for (let i = 0; i < num; i++) {
+            const xPos = center.x - ((num - 1) * diceSpacing * 0.5) + (i * diceSpacing);
+            const dice = this.add.sprite(xPos, center.y + 48, 'dices');
+            this.allDice.push(dice);
+
+            dice.addPosVec(new M.Vec2(randOffset(6), randOffset(16)));
+            dice.roll_target_pos = dice.getPosVec();
+            dice.addPosVec(new M.Vec2(randOffset(12), 30));
+            dice.roll_from_pos = dice.getPosVec();
+
+            dice.rolling = true;
+            dice.roll_anim_timer = 0;
+            dice.roll_timer = 0;
+            dice.total_roll_time = ROLL_TOTAL + Math.random() * 400;
         }
     }
 }
