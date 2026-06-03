@@ -7,6 +7,8 @@ function smoothRandOffset(size) {
     return (Math.random() - 0.5) * 2 * size;
 }
 
+M.Ease = Phaser.Math.Easing;
+
 const ROLL_TOTAL = 400;
 const ROLL_ONCE = 60;
 
@@ -37,14 +39,19 @@ M.DiceGame = class extends Phaser.Scene
         this.allEnemies = [];
 
         this.gob = new M.Goblin(this);
-        this.gob.setHomePos(this.screenCenterPos().add(new M.Vec2(-25, -12)));
+        this.gob.setHomePos(this.screenCenterPos().add(new M.Vec2(-50, -12)));
         this.gob.addToDisplayUpdate();
         this.allEnemies.push(this.gob);
 
         this.gnome = new M.BombGnome(this);
-        this.gnome.setHomePos(this.screenCenterPos().add(new M.Vec2(25, -12)));
+        this.gnome.setHomePos(this.screenCenterPos().add(new M.Vec2(0, -12)));
         this.gnome.addToDisplayUpdate();
         this.allEnemies.push(this.gnome);
+
+        const gn2 = new M.BombGnome(this);
+        gn2.setHomePos(this.screenCenterPos().add(new M.Vec2(50, -12)));
+        gn2.addToDisplayUpdate();
+        this.allEnemies.push(gn2);
 
         this.reroll = this.add.image(220, 132, "reroll");
         this.reroll.depth = 1;
@@ -105,10 +112,6 @@ M.DiceGame = class extends Phaser.Scene
         this.justClickedLMB = !this.LMBWasClicked && clicked
         this.LMBWasClicked = clicked
 
-        if (this.justClickedLMB) {
-            console.log("am click");
-        }
-
         let closestEnemy = null;
         let closestDice = null;
         let minDist = 0;
@@ -125,6 +128,9 @@ M.DiceGame = class extends Phaser.Scene
             }
         }
         for (let enemy of this.allEnemies) {
+            if (!enemy.alive) {
+                continue;
+            }
             let pointerDist = pVec.distance(enemy.getPosVec());
             if (pointerDist > 49) {
                 continue;
@@ -147,9 +153,11 @@ M.DiceGame = class extends Phaser.Scene
             closestDice = null;
         }
 
+        let clickedDice = false;
         this.changeEmphasisDice(closestDice);
         if (this.justClickedLMB) {
             if (closestDice && (!closestEnemy || !this.diceIsActive)) {
+                clickedDice = true;
                 this.changeActiveDice(closestDice);
             }
         }
@@ -161,21 +169,41 @@ M.DiceGame = class extends Phaser.Scene
             }
         }
 
-        if (closestEnemy && this.diceIsActive) {
+        if (closestEnemy && this.diceIsActive && !clickedDice) {
             const activeDice = this.getActiveDice();
             let diceToTargetVec = closestEnemy.getPosVec().subtract(activeDice.getPosVec());
 
             this.targetArrow.setPosVec(closestEnemy.getPosVec());
             this.targetArrow.rotation = diceToTargetVec.angle();
+            if (this.justClickedLMB) {
+                const activeDiceVal = this.getDiceVal(activeDice);
+                closestEnemy.attack(activeDiceVal);
+                this.removeDice(activeDice);
+            }
         } else {
             this.targetArrow.x = -6000
         }
+    }
+
+    getDiceVal(dice) {
+        return parseInt(dice.frame.name) + 1;
     }
 
     setupRolledDice(dice) {
         dice.tint = 0xdddddd;
         dice.emphasis = false;
         dice.activeDice = false;
+    }
+
+    removeDice(dice) {
+        const diceIndex = this.allDice.indexOf(dice);
+        if (diceIndex < 0) {
+            return;
+        }
+        this.clearDiceActive(dice);
+        this.allDice.splice(diceIndex, 1);
+        dice.destroy();
+        this.numDice = this.allDice.length;
     }
 
     setDiceEmphasis(dice) {
@@ -239,6 +267,15 @@ M.DiceGame = class extends Phaser.Scene
         }
         this.diceIsActive = true;
         this.setDiceActive(newActiveDice);
+    }
+
+    enemyExploded(explodingEnemy) {
+        for (let e of this.allEnemies) {
+            if (e === explodingEnemy || !e.alive) {
+                continue;
+            }
+            e.attack(8);
+        }
     }
 
     getActiveDice() {

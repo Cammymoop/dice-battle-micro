@@ -4,8 +4,11 @@ M.Enemy = class extends Phaser.GameObjects.Container
     constructor(scene) {
         super(scene);
         this.sprites = {}
+        this.spriteNames = [];
         this.homePos = M.Vec2.ZERO;
         this.hint = null;
+        this.alive = true;
+        this.deathAnimating = false;
     }
 
     setHomePos(newHomePos) {
@@ -30,7 +33,6 @@ M.Enemy = class extends Phaser.GameObjects.Container
         }
         this.hint = new M.Hint(this.scene);
         this.add(this.hint);
-        console.log("setting up hint with data: " + hintData);
         this.hint.setup(hintData);
     }
 
@@ -50,8 +52,13 @@ M.Enemy = class extends Phaser.GameObjects.Container
         if (!this.sprites[spriteName]) {
             return;
         }
-        if (this.contains(this.sprites[spriteName])) {
+        if (this.exists(this.sprites[spriteName])) {
+            this.sprites[spriteName].destroy();
             this.remove(this.sprites[spriteName]);
+        }
+        const nameIndex = this.spriteNames.indexOf(spriteName);
+        if (nameIndex >= 0) {
+            this.spriteNames.splice(nameIndex, 1);
         }
         delete this.sprites[spriteName];
     }
@@ -63,15 +70,33 @@ M.Enemy = class extends Phaser.GameObjects.Container
         if (this.sprites[spriteName]) {
             removeSprite(spriteName);
         }
+        if (!this.spriteNames.includes(spriteName)) {
+            this.spriteNames.push(spriteName);
+        }
         const spr = new Phaser.GameObjects.Sprite(this.scene, pos.x, pos.y, textureKey, frameIdx);
         this.sprites[spriteName] = spr;
         this.add(spr);
+    }
+
+    tintSprites(newTint) {
+        for (let spName of this.spriteNames) {
+            this.sprites[spName].setTint(newTint);
+        }
+    }
+
+    resetSpritesTint() {
+        for (let spName of this.spriteNames) {
+            this.sprites[spName].clearTint();
+        }
     }
 
     preUpdate (t, dt) {
         super.preUpdate(t, dt);
     }
 
+    attack(diceValue) {
+        console.log("base enemy attacked: " + diceValue);
+    }
 
 }
 
@@ -87,6 +112,8 @@ M.Goblin = class extends M.Enemy
 
         this.head_shift = 1;
 
+        this.dyingTint = Phaser.Display.Color.IntegerToColor(0x003300);
+
         this.addSprite("body", M.Vec2.ZERO, "gob_small", 0);
         this.addSprite("head", M.Vec2.ZERO, "gob_small", 2);
 
@@ -97,31 +124,99 @@ M.Goblin = class extends M.Enemy
     preUpdate (t, dt) {
 
         this.anim_timer += dt;
+        this.animProcess(dt);
         if (this.anim_timer > this.anim_interval) {
             this.anim_timer = 0;
             this.animUpdate();
         }
     }
 
+    changeAnim(animNumber) {
+        this.current_animation = animNumber;
+        this.resetAnim();
+    }
+
+    resetAnim() {
+        switch (this.current_animation) {
+            case 1:
+                this.sprites.head.frame = 2;
+                this.sprites.body.frame = 0;
+                this.sendToBack(this.sprites.body);
+                break;
+            case 2:
+                this.sprites.head.setFrame(3);
+                this.sprites.head.scaleX = 1;
+                this.sprites.head.x = 0;
+                this.sprites.body.setFrame(1);
+                this.bringToTop(this.sprites.body);
+                this.anim_state.death_timer = 0;
+                this.anim_state.death_total_time = 400;
+                break;
+        }
+    }
+
+    animProcess (dt) {
+        switch (this.current_animation) {
+            case 2:
+                this.anim_state.death_timer += dt;
+                const progress = this.anim_state.death_timer / this.anim_state.death_total_time;
+                const tintProgress = Math.min(1, progress * 2.2);
+
+                let tintColor = this.dyingTint;
+                if (tintProgress < 1) {
+                    const colorWhite = Phaser.Display.Color.IntegerToColor(0xffffff);
+                    tintColor = Phaser.Display.Color.Interpolate.ColorWithColor(
+                        colorWhite, this.dyingTint, 1, tintProgress
+                    );
+                }
+                this.tintSprites(tintColor.color);
+
+                const scaleProgress = Math.max(0, (M.Ease.Cubic.In(progress) * 1.5) - 0.5);
+                for (let spName of this.spriteNames) {
+                    this.sprites[spName].scaleY = 1 - scaleProgress;
+                }
+
+                if (progress >= 1) {
+                    this.finishDie();
+                }
+        }
+    }
+
     animUpdate () {
         switch (this.current_animation) {
             case 1:
-                this.anim_state.side *= -1
-                const head = this.sprites.head
+                this.anim_state.side *= -1;
+                const head = this.sprites.head;
                 if (head) {
-                    head.x = this.head_shift * this.anim_state.side
+                    head.x = this.head_shift * this.anim_state.side;
                     if (Math.random() < 0.05) {
                         head.scaleX *= -1;
                     }
                 }
                 break;
-        }
-        if (false && this.hint) {
-            this.hint.visible = !this.hint.visible;
-            console.log("hint visibility: " + this.hint.visible);
+            case 2:
+                break;
         }
     }
 
+    attack(diceValue) {
+        if (diceValue <= 2) {
+        } else {
+            this.startDie();
+        }
+    }
+
+    startDie() {
+        this.alive = false;
+        this.deathAnimating = true;
+        this.changeAnim(2);
+    }
+
+    finishDie() {
+        this.deathAnimating = false;
+        this.removeFromDisplayList();
+        this.removeFromUpdateList();
+    }
 }
 
 M.BombGnome = class extends M.Enemy
@@ -144,16 +239,18 @@ M.BombGnome = class extends M.Enemy
         this.addSprite("bomb", M.Vec2.ZERO, "bomb_gnome", 4);
         this.addSprite("head", M.Vec2.ZERO, "bomb_gnome", 6);
 
+        this.dyingTint = Phaser.Display.Color.IntegerToColor(0x330000);
+
         this.setupHint(26, [
             ["greater", "1", "", "arrow", "", "skull", ""],
-            ["greater", "4", "", "arrow", "", "skull", "boom"],
+            ["equal", "6", "", "arrow", "", "skull", "boom"],
         ]);
         this.hideHint();
     }
 
     preUpdate (t, dt) {
         this.total_time += dt;
-        this.animUpdate(dt);
+        this.animProcess(dt);
 
         this.anim_timer += dt;
         if (this.anim_timer > this.anim_interval) {
@@ -162,13 +259,76 @@ M.BombGnome = class extends M.Enemy
         }
     }
 
-    animUpdate (dt) {
-        const arm = this.sprites.arm;
-        if (arm) {
-            const smoothAngle = this.arm_angle_delta * (
-                Math.cos(this.total_time / this.arm_speed) / 2 - 0.5
+    animProcess (dt) {
+        let progress
+        let tintProgress
+        switch (this.current_animation) {
+            case 1:
+                const arm = this.sprites.arm
+                const smoothAngle = this.arm_angle_delta * (
+                    Math.cos(this.total_time / this.arm_speed) / 2 - 0.5
+                );
+                arm.rotation = Math.round(smoothAngle / this.snap) * this.snap;
+                break;
+            case 2:
+                this.anim_state.death_timer += dt;
+                progress = this.anim_state.death_timer / this.anim_state.death_total_time;
+
+                tintProgress = Math.min(1, progress * 2.2);
+                this.setDeathTint(tintProgress);
+
+                this.setDeathScale(progress, 0.5);
+
+                if (progress >= 1) {
+                    console.log("progress finished");
+                    this.finishDie();
+                }
+                break;
+            case 3:
+                this.anim_state.death_timer += dt;
+                progress = this.anim_state.death_timer / this.anim_state.death_total_time;
+
+                tintProgress = Math.min(1, progress * 4.2);
+                this.setDeathTint(tintProgress);
+
+                this.setDeathScale(progress, 1.2);
+
+                const boomThreshold = 0.45;
+                if (this.spriteNames.includes("boom")) {
+                    if (progress < boomThreshold) {
+                        const boomScaleProg = M.Ease.Back.Out(Math.min(1, progress * 3.0));
+                        this.sprites.boom.scale = 0.75 + boomScaleProg * 0.25
+                    } else {
+                        this.removeSprite("boom");
+                    }
+                }
+
+                if (progress >= 1) {
+                    this.finishDie();
+                }
+                break;
+        }
+    }
+
+    setDeathTint(tintProgress) {
+        let tintColor = this.dyingTint;
+        if (tintProgress < 1) {
+            const colorWhite = Phaser.Display.Color.IntegerToColor(0xffffff);
+            tintColor = Phaser.Display.Color.Interpolate.ColorWithColor(
+                colorWhite, this.dyingTint, 1, tintProgress
             );
-            arm.rotation = Math.round(smoothAngle / this.snap) * this.snap;
+        }
+        this.tintSprites(tintColor.color);
+        if (this.spriteNames.includes("boom")) {
+            this.sprites.boom.clearTint();
+        }
+    }
+
+    setDeathScale(deathProgress, shrinkOffset) {
+        const clampedAdjusted = Math.max(0, Math.min(1, (deathProgress * (1 + shrinkOffset)) - 0.5))
+        const scaleProgress = M.Ease.Cubic.In(clampedAdjusted);
+        for (let spName of this.spriteNames) {
+            this.sprites[spName].scaleY = 1 - scaleProgress;
         }
     }
 
@@ -176,11 +336,70 @@ M.BombGnome = class extends M.Enemy
         switch (this.current_animation) {
             case 1:
                 const head = this.sprites.head;
-                if (head) {
-                    head.y = head.y > 0 ? 0 : 1;
-                }
+                head.y = head.y > 0 ? 0 : 1;
                 break;
         }
     }
 
+    changeAnim(animNumber) {
+        this.current_animation = animNumber;
+        this.resetAnim();
+    }
+
+    resetAnim() {
+        this.sprites.arm.rotation = 0;
+        console.log("gnome reset anim " + this.current_animation);
+        switch (this.current_animation) {
+            case 1:
+                this.sprites.body.setFrame(0);
+                this.sprites.arm.setFrame(2);
+                this.sprites.head.setFrame(6);
+                break;
+            case 2:
+                this.sprites.body.setFrame(1);
+                this.sprites.arm.setFrame(3);
+                this.sprites.head.setFrame(7);
+
+                this.anim_state.death_timer = 0;
+                this.anim_state.death_total_time = 600;
+                break;
+            case 3:
+                this.addSprite("boom", M.Vec2.ZERO, "explosion", 6);
+                this.sprites.boom.scale = 0.75;
+
+                this.sprites.body.setFrame(1);
+                this.sprites.arm.setFrame(3);
+                this.sprites.bomb.visible = false;
+                this.sprites.head.setFrame(7);
+
+                this.anim_state.death_timer = 0;
+                this.anim_state.death_total_time = 900;
+                break;
+        }
+    }
+
+    attack(diceValue) {
+        if (diceValue <= 1) {
+        } else if (diceValue >= 6) {
+            this.startDie(true);
+        } else {
+            this.startDie(false);
+        }
+    }
+
+    startDie(exploding) {
+        this.alive = false;
+        this.deathAnimating = true;
+        this.changeAnim(exploding ? 3 : 2);
+        if (exploding) {
+            setInterval(() => this.scene.enemyExploded(this), 150);
+            //this.scene.enemyExploded(this);
+        }
+    }
+
+    finishDie() {
+        this.deathAnimating = false;
+        this.removeFromDisplayList();
+        this.removeFromUpdateList();
+    }
 }

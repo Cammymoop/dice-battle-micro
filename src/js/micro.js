@@ -45,7 +45,6 @@ M.WaitScene = class extends Phaser.Scene
         this.load.spritesheet('gob_small', 'assets/gob_small.png', {
             "frameWidth": 48, "frameHeight": 46,
         });
-
         this.load.spritesheet('bomb_gnome', 'assets/bomb_gnome.png', {
             "frameWidth": 42, "frameHeight": 50,
         });
@@ -78,11 +77,8 @@ M.WaitScene = class extends Phaser.Scene
     startDiceGame()
     {
         if (M.gameScene.scene.isActive()) {
-            console.log("game scene is active, restarting it");
-            //this.scene.switch("play");
             M.gameScene.scene.restart();
         } else {
-            console.log("game scene is not active, switching");
             this.scene.switch("play");
         }
     }
