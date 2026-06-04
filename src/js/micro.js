@@ -86,7 +86,6 @@ M.WaitScene = class extends Phaser.Scene
 
     startDiceGame()
     {
-        console.log("current difficulty: " + this.difficulty);
         const data = { difficulty: this.difficulty };
         this.scene.switch("play", data);
         this.scene.stop();
