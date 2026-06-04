@@ -74,7 +74,7 @@ M.WaitScene = class extends Phaser.Scene
 
     update(t, dt)
     {
-        if (this.input.activePointer.primaryDown) {
+        if (M.standalone && this.input.activePointer.primaryDown) {
             this.startDiceGame();
         }
     }
@@ -132,6 +132,8 @@ const config = {
     //antialias: false,
     //antialiasGL: true,
 };
+
+M.standalone = window.self === window.top
 
 const game = new Phaser.Game(config);
 M.game = game;
