@@ -30,6 +30,11 @@ M.WaitScene = class extends Phaser.Scene
         this.load.image('target_arrow', 'assets/target_arrow.png');
         this.load.image('reroll', 'assets/reroll.png');
 
+        this.load.image('stopwatch_frame', 'assets/stopwatch_frame.png');
+        this.load.spritesheet('stopwatch_numbers', 'assets/stopwatch_numbers.png', {
+            "frameWidth": 12, "frameHeight": 14,
+        });
+
         this.load.image('arrow_icon', 'assets/arrow_icon.png');
         this.load.image('boom_icon', 'assets/boom_icon.png');
         this.load.image('dice_icon', 'assets/dice_icon.png');
@@ -56,7 +61,9 @@ M.WaitScene = class extends Phaser.Scene
 
     create()
     {
+        this.difficulty = 0;
         this.textures.get("bomb_gnome").setFilter(Phaser.Textures.FilterMode.Nearest);
+        this.textures.get("dices").setFilter(Phaser.Textures.FilterMode.Nearest);
 
         Phaser.Display.Canvas.CanvasInterpolation.setCrisp(this.game.canvas);
         window.parent.postMessage({op: "ready"});
@@ -69,17 +76,18 @@ M.WaitScene = class extends Phaser.Scene
         }
     }
 
-    timeToStart(difficulty)
-    {
+    timeToStart(difficulty) {
+        this.difficulty = difficulty;
         this.startDiceGame();
     }
 
     startDiceGame()
     {
+        const data = { difficulty: this.difficulty };
         if (M.gameScene.scene.isActive()) {
-            M.gameScene.scene.restart();
+            M.gameScene.scene.restart(data);
         } else {
-            this.scene.switch("play");
+            this.scene.switch("play", data);
         }
     }
 }

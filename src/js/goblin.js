@@ -28,7 +28,7 @@ M.Enemy = class extends Phaser.GameObjects.Container
 
     addHintData(hintData) {
         if (this.hint) {
-            this.remove(hint);
+            this.remove(this.hint);
             this.hint.destroy();
         }
         this.hint = new M.Hint(this.scene);
@@ -102,9 +102,10 @@ M.Enemy = class extends Phaser.GameObjects.Container
 
 M.Goblin = class extends M.Enemy
 {
-    constructor(scene) {
+    constructor(scene, withShield = false) {
         super(scene);
-        this.anim_interval = 160;
+        this.baseAnimInterval = 160;
+        this.anim_interval = this.baseAnimInterval;
         this.anim_timer = 0;
 
         this.current_animation = 1;
@@ -115,10 +116,24 @@ M.Goblin = class extends M.Enemy
         this.dyingTint = Phaser.Display.Color.IntegerToColor(0x003300);
 
         this.addSprite("body", M.Vec2.ZERO, "gob_small", 0);
-        this.addSprite("head", M.Vec2.ZERO, "gob_small", 2);
+        this.addSprite("shield", M.Vec2.ZERO, "gob_small", 2);
+        this.addSprite("head", M.Vec2.ZERO, "gob_small", 4);
 
-        this.setupHint(20, [["greater", "2", "", "arrow", "", "skull"]]);
+        this.shielded = withShield;
+        if (!this.shielded) {
+            this.sprites.shield.visible = false;
+        }
+
+        this.refreshHint();
         this.hideHint();
+    }
+
+    refreshHint() {
+        if (this.shielded) {
+            this.setupHint(20, [["less", "4", "", "arrow", "", "guard_break"]]);
+        } else {
+            this.setupHint(20, [["greater", "2", "", "arrow", "", "skull"]]);
+        }
     }
 
     preUpdate (t, dt) {
@@ -137,20 +152,36 @@ M.Goblin = class extends M.Enemy
     }
 
     resetAnim() {
+        this.sprites.head.y = 0;
+        this.anim_interval = this.baseAnimInterval;
         switch (this.current_animation) {
             case 1:
-                this.sprites.head.frame = 2;
-                this.sprites.body.frame = 0;
+                this.sprites.head.setFrame(4);
+                this.sprites.body.setFrame(0);
                 this.sendToBack(this.sprites.body);
                 break;
             case 2:
-                this.sprites.head.setFrame(3);
+                this.sprites.head.setFrame(5);
                 this.sprites.head.scaleX = 1;
                 this.sprites.head.x = 0;
                 this.sprites.body.setFrame(1);
                 this.bringToTop(this.sprites.body);
                 this.anim_state.death_timer = 0;
                 this.anim_state.death_total_time = 400;
+                break;
+            case 3: // laugh
+                this.sprites.head.setFrame(4);
+                this.sprites.head.x = 0;
+                this.anim_interval = 60;
+                this.anim_timer = 30;
+                this.anim_state.anim_timer = 0;
+                this.anim_state.anim_total_time = 600;
+                break;
+            case 4: // shield break
+                this.sprites.head.setFrame(5);
+                this.bringToTop(this.sprites.body);
+                this.anim_state.anim_timer = 0;
+                this.anim_state.anim_total_time = 280;
                 break;
         }
     }
@@ -179,31 +210,63 @@ M.Goblin = class extends M.Enemy
                 if (progress >= 1) {
                     this.finishDie();
                 }
+                break;
+            case 3:
+                this.anim_state.anim_timer += dt;
+                if (this.anim_state.anim_timer > this.anim_state.anim_total_time) {
+                    this.changeAnim(1);
+                }
+                break;
+            case 4:
+                this.anim_state.anim_timer += dt;
+                if (this.anim_state.anim_timer > this.anim_state.anim_total_time) {
+                    this.changeAnim(1);
+                }
+                break;
         }
     }
 
     animUpdate () {
+        const head = this.sprites.head;
         switch (this.current_animation) {
             case 1:
                 this.anim_state.side *= -1;
-                const head = this.sprites.head;
-                if (head) {
-                    head.x = this.head_shift * this.anim_state.side;
-                    if (Math.random() < 0.05) {
-                        head.scaleX *= -1;
-                    }
+                head.x = this.head_shift * this.anim_state.side;
+                if (Math.random() < 0.05) {
+                    head.scaleX *= -1;
                 }
                 break;
-            case 2:
+            case 3:
+                if (head.y === 0) {
+                    head.y = 1;
+                } else {
+                    head.y = 0;
+                }
                 break;
         }
     }
 
     attack(diceValue) {
-        if (diceValue <= 2) {
+        if (this.shielded) {
+            if (diceValue <= 3 || diceValue > 6) {
+                this.breakShield();
+            } else {
+                this.changeAnim(3); // laugh
+            }
         } else {
-            this.startDie();
+            if (diceValue <= 2) {
+                this.changeAnim(3); // laugh
+            } else {
+                this.startDie();
+            }
         }
+    }
+
+    breakShield() {
+        this.shielded = false;
+        this.sprites.shield.visible = false;
+        this.refreshHint();
+        this.changeAnim(4);
     }
 
     startDie() {
@@ -392,7 +455,7 @@ M.BombGnome = class extends M.Enemy
         this.deathAnimating = true;
         this.changeAnim(exploding ? 3 : 2);
         if (exploding) {
-            setInterval(() => this.scene.enemyExploded(this), 150);
+            setTimeout(() => this.scene.enemyExploded(this), 150);
             //this.scene.enemyExploded(this);
         }
     }

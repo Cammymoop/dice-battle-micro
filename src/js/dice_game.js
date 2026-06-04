@@ -12,17 +12,57 @@ M.Ease = Phaser.Math.Easing;
 const ROLL_TOTAL = 400;
 const ROLL_ONCE = 60;
 
+const battles = [
+    // difficulty tier 0
+    [
+        [5, "ShieldGoblin", "ShieldGoblin"],
+    ],
+    [
+        [3, "Goblin", "Goblin"],
+        [2, "BombGnome", "Goblin"],
+        [2, "BombGnome", "BombGnome"],
+    ],
+    // difficulty tier 1
+    [
+        [3, "Goblin", "Goblin", "BombGnome"],
+        [2, "Goblin", "Goblin"],
+        [1, "Goblin"],
+    ],
+];
+
+const battleBags = [[],[],];
+
+const timerTimes = [16, 12, 8];
+
+function arrShuffle(inArr) {
+    return inArr.map((v) => ({v: v, r: Math.random()})).sort((a, b) => a.r - b.r).map(({v}) => v);
+}
+
+function getBattle(tier) {
+    tier = Math.min(battles.length - 1, tier);
+    if (battleBags[tier].length < 1) {
+        battleBags[tier] = arrShuffle([...battles[tier]]);
+    }
+    return [...battleBags[tier].pop()];
+}
+
+const enemyTypes = {
+    "Goblin": (s) => new M.Goblin(s),
+    "ShieldGoblin": (s) => new M.Goblin(s, true),
+    "BombGnome": (s) => new M.BombGnome(s),
+};
+
 M.DiceGame = class extends Phaser.Scene
 {
-    create()
+    create(data)
     {
+        this.difficultyVal = data.difficulty;
+        this.tier = this.difficultyVal;
+
+        this.battle = getBattle(this.tier);
+        this.timeLimit = timerTimes[Math.min(timerTimes.length - 1, this.tier)]
+
         M.gameStarted();
-        //const roll_anim = {
-        //    "key": "roll", "frames": "dices",
-        //    "framerate": 10,
-        //    "repeat": -1,
-        //};
-        //this.anims.create(roll_anim);
 
         this.diceIsActive = false;
 
@@ -31,6 +71,9 @@ M.DiceGame = class extends Phaser.Scene
 
         this.bg = this.add.image(-30, -22, 'background').setOrigin(0, 0);
 
+        this.stopwatch = new M.Stopwatch(this, this.timeLimit, new M.Vec2(26, 26));
+        this.stopwatch.depth = 5;
+
         this.circle = this.add.image(-6000, 0, "red_circle");
         this.targetArrow = this.add.image(-6000, 0, "target_arrow"); 
         this.targetArrow.setOrigin(1, 0.5);
@@ -38,25 +81,21 @@ M.DiceGame = class extends Phaser.Scene
 
         this.allEnemies = [];
 
-        this.gob = new M.Goblin(this);
-        this.gob.setHomePos(this.screenCenterPos().add(new M.Vec2(-50, -12)));
-        this.gob.addToDisplayUpdate();
-        this.allEnemies.push(this.gob);
-
-        this.gnome = new M.BombGnome(this);
-        this.gnome.setHomePos(this.screenCenterPos().add(new M.Vec2(0, -12)));
-        this.gnome.addToDisplayUpdate();
-        this.allEnemies.push(this.gnome);
-
-        const gn2 = new M.BombGnome(this);
-        gn2.setHomePos(this.screenCenterPos().add(new M.Vec2(50, -12)));
-        gn2.addToDisplayUpdate();
-        this.allEnemies.push(gn2);
+        const enemySpacing = 50;
+        const enemyYOffset = -12;
+        const startOffset = ((this.battle.length - 2) / 2) * enemySpacing;
+        for (let i = 1; i < this.battle.length; i++) {
+            const newEnemy = enemyTypes[this.battle[i]](this);
+            const xOffset = ((i - 1) * enemySpacing) - startOffset;
+            newEnemy.setHomePos(this.screenCenterPos().add(new M.Vec2(xOffset, enemyYOffset)));
+            newEnemy.addToDisplayUpdate();
+            this.allEnemies.push(newEnemy);
+        }
 
         this.reroll = this.add.image(220, 132, "reroll");
         this.reroll.depth = 1;
 
-        this.numDice = 3;
+        this.numDice = this.battle[0];
         this.allDice = [];
         this.rollDice(this.numDice);
     }
@@ -270,6 +309,7 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     enemyExploded(explodingEnemy) {
+        console.log("enemy exploded");
         for (let e of this.allEnemies) {
             if (e === explodingEnemy || !e.alive) {
                 continue;
@@ -306,16 +346,19 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     rollDice(num) {
-        const diceSpacing = 52;
+        let diceSpacing = 52;
+        if (num > 1) {
+            diceSpacing = Math.min(diceSpacing, Math.round(154 / (num - 1)));
+        }
         const center = this.screenCenterPos();
         for (let i = 0; i < num; i++) {
-            const xPos = center.x - ((num - 1) * diceSpacing * 0.5) + (i * diceSpacing);
-            const dice = this.add.sprite(xPos, center.y + 48, 'dices');
+            const xPos = center.x - ((num - 1) * diceSpacing * 0.5) + (i * diceSpacing) - 10;
+            const dice = this.add.sprite(xPos, center.y + 52, 'dices');
             this.allDice.push(dice);
 
-            dice.addPosVec(new M.Vec2(randOffset(6), randOffset(16)));
+            dice.addPosVec(new M.Vec2(randOffset(3), randOffset(11)));
             dice.roll_target_pos = dice.getPosVec();
-            dice.addPosVec(new M.Vec2(randOffset(12), 30));
+            dice.addPosVec(new M.Vec2(randOffset(16), 30));
             dice.roll_from_pos = dice.getPosVec();
 
             dice.rolling = true;
@@ -323,5 +366,9 @@ M.DiceGame = class extends Phaser.Scene
             dice.roll_timer = 0;
             dice.total_roll_time = ROLL_TOTAL + Math.random() * 400;
         }
+    }
+
+    timeUp() {
+        this.scene.restart();
     }
 }
