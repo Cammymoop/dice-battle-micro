@@ -123,7 +123,10 @@ M.Goblin = class extends M.Enemy
         this.shieldBreaking = false;
         this.shielded = withShield;
         if (!this.shielded) {
+            this.enemyName = "Goblin";
             this.sprites.shield.visible = false;
+        } else {
+            this.enemyName = "ShieldGoblin";
         }
 
         this.refreshHint();
@@ -277,6 +280,7 @@ M.Goblin = class extends M.Enemy
     }
 
     breakShield() {
+        this.enemyName = "Goblin";
         this.shielded = false;
         this.sprites.shield.visible = false;
         this.refreshHint();
@@ -301,6 +305,8 @@ M.BombGnome = class extends M.Enemy
 {
     constructor(scene) {
         super(scene);
+        this.enemyName = "BombGnome";
+
         this.anim_interval = 320;
         this.anim_timer = 0;
         this.total_time = 0;

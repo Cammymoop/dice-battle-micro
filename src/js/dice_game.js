@@ -9,7 +9,7 @@ function smoothRandOffset(size) {
 
 M.Ease = Phaser.Math.Easing;
 
-const ROLL_TOTAL = 400;
+const ROLL_TOTAL = 290;
 const ROLL_ONCE = 60;
 
 const battles = [
@@ -29,20 +29,36 @@ const battles = [
     // difficulty tier 2
     [
         [4, "ShieldGoblin", "ShieldGoblin"],
+        [7, "Goblin", "Goblin", "Goblin", "Goblin"],
         [3, "ShieldGoblin", "BombGnome"],
         [3, "Goblin", "BombGnome", "Goblin", "Goblin"],
+        [1, "BombGnome", "BombGnome", "BombGnome", "Goblin"],
     ],
     // difficulty tier 3
     [
         [2, "ShieldGoblin", "BombGnome"],
+        [3, "ShieldGoblin", "BombGnome", "BombGnome", "ShieldGoblin"],
+        [7, "Goblin", "Goblin", "Goblin", "ShieldGoblin", "Goblin"],
+        [7, "ShieldGoblin", "ShieldGoblin", "ShieldGoblin"],
+    ],
+    // difficulty tier 4
+    [
+        [3, "ShieldGoblin", "Goblin", "BombGnome"],
+        [6, "Goblin", "Goblin", "Goblin", "ShieldGoblin", "Goblin"],
+        [7, "ShieldGoblin", "ShieldGoblin", "ShieldGoblin"],
+    ],
+    // difficulty tier 5
+    [
+        [10, "ShieldGoblin", "ShieldGoblin", "ShieldGoblin", "ShieldGoblin", "ShieldGoblin"],
+        [8, "ShieldGoblin", "ShieldGoblin", "ShieldGoblin", "ShieldGoblin", "BombGnome"],
     ],
 
 ];
 const maxTier = battles.length - 1;
 
-const battleBags = [[],[],[],[],[]];
+const battleBags = [[],[],[],[],[], []];
 
-const timerTimes = [10, 12, 14, 12];
+const timerTimes = [12, 14, 16, 14, 10, 14];
 
 function arrShuffle(inArr) {
     return inArr.map((v) => ({v: v, r: Math.random()})).sort((a, b) => a.r - b.r).map(({v}) => v);
@@ -67,12 +83,15 @@ M.DiceGame = class extends Phaser.Scene
     create(data)
     {
         this.finished = false;
+        this.usedGrace = false;
 
         this.difficultyVal = data.difficulty;
         this.tier = Math.min(maxTier, this.difficultyVal);
 
         this.battle = getBattle(this.tier);
         this.timeLimit = timerTimes[Math.min(timerTimes.length - 1, this.tier)]
+        // make it a bit easier for now
+        this.timeLimit = Math.ceil(this.timeLimit * 1.4);
 
         M.gameStarted();
 
@@ -239,18 +258,33 @@ M.DiceGame = class extends Phaser.Scene
         }
 
         if (!this.finished) {
-            let aliveEnemies = 0;
-            for (let e of this.allEnemies) {
-                if (e.alive) {
-                    aliveEnemies += 1;
-                }
-            }
+            let aliveEnemies = this.aliveEnemiesCount();
             if (aliveEnemies < 1) {
                 this.nowFinished(true);
             } else if (this.unusedDiceNum() < 1) {
                 this.nowFinished(false);
             }
         }
+    }
+
+    aliveEnemiesCount() {
+        let aliveEnemies = 0;
+        for (let e of this.allEnemies) {
+            if (e.alive) {
+                aliveEnemies += 1;
+            }
+        }
+        return aliveEnemies;
+    }
+
+    aliveEnemyNames() {
+        let names = [];
+        for (let e of this.allEnemies) {
+            if (e.alive) {
+                names.push(e.enemyName);
+            }
+        }
+        return names;
     }
 
     nowFinished(won, fromTimer = false) {
@@ -296,6 +330,60 @@ M.DiceGame = class extends Phaser.Scene
         dice.tint = 0xdddddd;
         dice.emphasis = false;
         dice.activeDice = false;
+        if (this.stopwatch.getTimeLeft() < 3500 && !this.usedGrace) {
+            this.grace(dice);
+        }
+    }
+
+    grace(dice) {
+        const unusedCount = this.unusedDiceNum();
+        const enemyNames = this.aliveEnemyNames();
+        let rolledNumbers = [];
+        for (let otherDice of this.allDice) {
+            if (otherDice === dice || otherDice.throwing) {
+                continue;
+            }
+            rolledNumbers.push(this.getDiceVal(otherDice));
+        }
+        if (enemyNames.length < 1) {
+            return;
+        }
+        if (enemyNames.includes("BombGnome")) {
+            if (enemyNames.length > unusedCount) {
+                this.usedGrace = true;
+                this.setDiceTo(dice, 6);
+            } else if (unusedCount === 1) {
+                this.usedGrace = true;
+                this.setDiceTo(dice, 2);
+            }
+        } else {
+            if (enemyNames.includes("ShieldGoblin")) {
+                this.usedGrace = true;
+                this.setDiceTo(dice, 3);
+            } else if (unusedCount === 1) {
+                this.usedGrace = true;
+                this.setDiceTo(dice, Math.floor(Math.random() * 4) + 3);
+            } else if (unusedCount - rolledNumbers.length === 1) {
+                greaterThanTwo = false;
+                for (rolledNum of rolledNumbers) {
+                    if (rolledNum > 2) {
+                        greaterThanTwo = true;
+                    }
+                }
+                if (!greaterThanTwo) {
+                    this.usedGrace = true;
+                    this.setDiceTo(dice, 3);
+                }
+            }
+        }
+
+        if (this.usedGrace) {
+            console.log("halleluyah");
+        }
+    }
+
+    setDiceTo(dice, toNum) {
+        dice.setFrame(toNum - 1);
     }
 
     throwDice(dice, atEnemy) {
