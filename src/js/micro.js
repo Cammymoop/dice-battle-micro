@@ -30,6 +30,9 @@ M.WaitScene = class extends Phaser.Scene
         this.load.image('target_arrow', 'assets/target_arrow.png');
         this.load.image('reroll', 'assets/reroll.png');
 
+        this.load.image('yes', 'assets/yes.png');
+        this.load.image('ohno', 'assets/ohno.png');
+
         this.load.image('stopwatch_frame', 'assets/stopwatch_frame.png');
         this.load.spritesheet('stopwatch_numbers', 'assets/stopwatch_numbers.png', {
             "frameWidth": 12, "frameHeight": 14,

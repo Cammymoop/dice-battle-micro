@@ -30,6 +30,10 @@ M.Stopwatch = class extends Phaser.GameObjects.Container
         this.addToUpdateList();
     }
 
+    getTimeLeft() {
+        return this.totalSeconds * 1000 - this.elapsed;
+    }
+
     setupHint(height, hintData) {
         this.addHintData(hintData);
         this.hint.y = -height;
@@ -42,7 +46,8 @@ M.Stopwatch = class extends Phaser.GameObjects.Container
         this.showNumber(dispSeconds);
 
         if (this.elapsed / 1000 > this.totalSeconds) {
-            this.scene.timeUp();
+            this.scene.nowFinished(false, true);
+            this.pause();
         }
     }
 

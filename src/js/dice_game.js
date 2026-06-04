@@ -15,9 +15,6 @@ const ROLL_ONCE = 60;
 const battles = [
     // difficulty tier 0
     [
-        [5, "ShieldGoblin", "ShieldGoblin"],
-    ],
-    [
         [3, "Goblin", "Goblin"],
         [2, "BombGnome", "Goblin"],
         [2, "BombGnome", "BombGnome"],
@@ -27,12 +24,25 @@ const battles = [
         [3, "Goblin", "Goblin", "BombGnome"],
         [2, "Goblin", "Goblin"],
         [1, "Goblin"],
+        [4, "ShieldGoblin"],
     ],
+    // difficulty tier 2
+    [
+        [4, "ShieldGoblin", "ShieldGoblin"],
+        [3, "ShieldGoblin", "BombGnome"],
+        [3, "Goblin", "BombGnome", "Goblin", "Goblin"],
+    ],
+    // difficulty tier 3
+    [
+        [2, "ShieldGoblin", "BombGnome"],
+    ],
+
 ];
+const maxTier = battles.length - 1;
 
-const battleBags = [[],[],];
+const battleBags = [[],[],[],[],[]];
 
-const timerTimes = [16, 12, 8];
+const timerTimes = [10, 12, 14, 12];
 
 function arrShuffle(inArr) {
     return inArr.map((v) => ({v: v, r: Math.random()})).sort((a, b) => a.r - b.r).map(({v}) => v);
@@ -56,8 +66,10 @@ M.DiceGame = class extends Phaser.Scene
 {
     create(data)
     {
+        this.finished = false;
+
         this.difficultyVal = data.difficulty;
-        this.tier = this.difficultyVal;
+        this.tier = Math.min(maxTier, this.difficultyVal);
 
         this.battle = getBattle(this.tier);
         this.timeLimit = timerTimes[Math.min(timerTimes.length - 1, this.tier)]
@@ -109,7 +121,9 @@ M.DiceGame = class extends Phaser.Scene
     update(t, dt) {
         let pickableDice = 0;
         for (let dice of this.allDice) {
-            if (dice.rolling) {
+            if (dice.throwing) {
+                this.updateThrownDice(dice, dt);
+            } else if (dice.rolling) {
                 dice.roll_timer += dt;
                 dice.roll_anim_timer += dt;
 
@@ -216,11 +230,61 @@ M.DiceGame = class extends Phaser.Scene
             this.targetArrow.rotation = diceToTargetVec.angle();
             if (this.justClickedLMB) {
                 const activeDiceVal = this.getDiceVal(activeDice);
-                closestEnemy.attack(activeDiceVal);
-                this.removeDice(activeDice);
+                this.throwDice(activeDice, closestEnemy);
+                //closestEnemy.attack(activeDiceVal);
+                //this.removeDice(activeDice);
             }
         } else {
             this.targetArrow.x = -6000
+        }
+
+        if (!this.finished) {
+            let aliveEnemies = 0;
+            for (let e of this.allEnemies) {
+                if (e.alive) {
+                    aliveEnemies += 1;
+                }
+            }
+            if (aliveEnemies < 1) {
+                this.nowFinished(true);
+            } else if (this.unusedDiceNum() < 1) {
+                this.nowFinished(false);
+            }
+        }
+    }
+
+    nowFinished(won, fromTimer = false) {
+        if (this.finished) {
+            return;
+        }
+        if (!won) {
+            battleBags[this.tier].push([...this.battle]);
+            battleBags[this.teir] = arrShuffle(battleBags[this.tier]);
+        }
+        this.finished = true;
+        const timeLeft = this.stopwatch.getTimeLeft();
+
+        const waitForText = Math.min(timeLeft, 200);
+        if (waitForText <= 0) {
+            this.showEndText(won);
+        } else {
+            setTimeout( () => this.showEndText(won), waitForText);
+        }
+
+        if (fromTimer) {
+            setTimeout(() => this.timeUp(), 300); 
+        } else {
+            const continueDelay = Math.max(Math.min(2200, timeLeft), 300);
+            setTimeout(() => this.timeUp(), continueDelay); 
+        }
+    }
+
+    showEndText(won) {
+        const c = this.screenCenterPos();
+        if (won) {
+            this.add.image(c.x, c.y, "yes");
+        } else {
+            this.add.image(c.x, c.y, "ohno");
         }
     }
 
@@ -232,6 +296,40 @@ M.DiceGame = class extends Phaser.Scene
         dice.tint = 0xdddddd;
         dice.emphasis = false;
         dice.activeDice = false;
+    }
+
+    throwDice(dice, atEnemy) {
+        if (!atEnemy || !atEnemy.alive) {
+            return;
+        }
+        if (dice.activeDice) {
+            this.clearDiceActive(dice);
+        }
+        atEnemy.preattack(this.getDiceVal(dice));
+        dice.throwing = true;
+        dice.throwingAt = atEnemy;
+        dice.throwFrom = dice.getPosVec();
+        dice.throwTo = atEnemy.getPosVec();
+        dice.throwTimer = 0;
+        dice.throwTotalTime = 80;
+    }
+
+    updateThrownDice(dice, dt) {
+        dice.throwTimer += dt;
+        if (dice.throwTimer > dice.throwTotalTime) {
+            this.finishThrownDice(dice);
+        } else {
+            const progress = dice.throwTimer / dice.throwTotalTime;
+            dice.scale = Math.max(0.1, 1 - progress);
+            const delta = dice.throwTo.clone().subtract(dice.throwFrom);
+            dice.setPosVec(dice.throwFrom);
+            dice.addPosVec(delta.scale(M.Ease.Cubic.Out(progress)));
+        }
+    }
+
+    finishThrownDice(dice) {
+        dice.throwingAt.attack(this.getDiceVal(dice));
+        this.removeDice(dice);
     }
 
     removeDice(dice) {
@@ -309,9 +407,15 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     enemyExploded(explodingEnemy) {
-        console.log("enemy exploded");
-        for (let e of this.allEnemies) {
-            if (e === explodingEnemy || !e.alive) {
+        const enemyIndex = this.allEnemies.indexOf(explodingEnemy);
+        if (enemyIndex === -1) {
+            console.log("exploding enemy not found in allEnemies");
+            return;
+        }
+        for (let i = enemyIndex - 1; i < enemyIndex + 1; i += 2) {
+            const e = this.allEnemies[i];
+            if (!e.alive) {
+                console.log("adjacent enemy is not alive " + i);
                 continue;
             }
             e.attack(8);
@@ -330,19 +434,35 @@ M.DiceGame = class extends Phaser.Scene
         return null;
     }
 
-    clearAllDice() {
-        for (let dice of this.allDice) {
+    clearUnusedDice() {
+        const oldDice = this.allDice;
+        this.allDice = [];
+        for (let dice of oldDice) {
+            if (dice.throwing) {
+                this.allDice.push(dice);
+                continue;
+            }
             if (dice.activeDice) {
                 this.clearDiceActive(dice);
             }
             dice.destroy();
         }
-        this.allDice = [];
+    }
+
+    unusedDiceNum() {
+        let num = 0;
+        for (let dice of this.allDice) {
+            if (!dice.throwing) {
+                num += 1;
+            }
+        }
+        return num;
     }
 
     rerollUnused() {
-        this.clearAllDice();
-        this.rollDice(this.numDice);
+        let unusedNum = this.unusedDiceNum();
+        this.clearUnusedDice();
+        this.rollDice(unusedNum);
     }
 
     rollDice(num) {
@@ -369,6 +489,10 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     timeUp() {
-        this.scene.restart();
+        let difficulty = this.difficultyVal
+        if (battleBags[this.tier].length < 1) {
+            difficulty += 1;
+        }
+        this.scene.restart({difficulty: difficulty});
     }
 }

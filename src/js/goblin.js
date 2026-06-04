@@ -119,6 +119,7 @@ M.Goblin = class extends M.Enemy
         this.addSprite("shield", M.Vec2.ZERO, "gob_small", 2);
         this.addSprite("head", M.Vec2.ZERO, "gob_small", 4);
 
+        this.shieldBreaking = false;
         this.shielded = withShield;
         if (!this.shielded) {
             this.sprites.shield.visible = false;
@@ -262,6 +263,18 @@ M.Goblin = class extends M.Enemy
         }
     }
 
+    preattack(diceValue) {
+        if (this.shielded && !this.shieldBreaking) {
+            if (diceValue <= 3 || diceValue > 6) {
+                this.shieldBreaking = true;
+            }
+        } else {
+            if (diceValue > 2) {
+                this.alive = false;
+            }
+        }
+    }
+
     breakShield() {
         this.shielded = false;
         this.sprites.shield.visible = false;
@@ -343,7 +356,6 @@ M.BombGnome = class extends M.Enemy
                 this.setDeathScale(progress, 0.5);
 
                 if (progress >= 1) {
-                    console.log("progress finished");
                     this.finishDie();
                 }
                 break;
@@ -411,7 +423,6 @@ M.BombGnome = class extends M.Enemy
 
     resetAnim() {
         this.sprites.arm.rotation = 0;
-        console.log("gnome reset anim " + this.current_animation);
         switch (this.current_animation) {
             case 1:
                 this.sprites.body.setFrame(0);
@@ -427,7 +438,7 @@ M.BombGnome = class extends M.Enemy
                 this.anim_state.death_total_time = 600;
                 break;
             case 3:
-                this.addSprite("boom", M.Vec2.ZERO, "explosion", 6);
+                this.addSprite("boom", M.Vec2.ZERO, "explosion");
                 this.sprites.boom.scale = 0.75;
 
                 this.sprites.body.setFrame(1);
@@ -447,6 +458,12 @@ M.BombGnome = class extends M.Enemy
             this.startDie(true);
         } else {
             this.startDie(false);
+        }
+    }
+
+    preattack(diceValue) {
+        if (diceValue > 1) {
+            this.alive = false;
         }
     }
 
