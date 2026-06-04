@@ -64,7 +64,7 @@ M.WaitScene = class extends Phaser.Scene
 
     create()
     {
-        this.difficulty = 0;
+        this.difficulty = M.gameDifficulty;
         this.textures.get("bomb_gnome").setFilter(Phaser.Textures.FilterMode.Nearest);
         this.textures.get("dices").setFilter(Phaser.Textures.FilterMode.Nearest);
 
@@ -86,14 +86,14 @@ M.WaitScene = class extends Phaser.Scene
 
     startDiceGame()
     {
+        console.log("current difficulty: " + this.difficulty);
         const data = { difficulty: this.difficulty };
-        if (M.gameScene.scene.isActive()) {
-            M.gameScene.scene.restart(data);
-        } else {
-            this.scene.switch("play", data);
-        }
+        this.scene.switch("play", data);
+        this.scene.stop();
     }
 }
+
+M.gameDifficulty = 0;
 
 M.waitingScene = new M.WaitScene("wait");
 M.gameScene = new M.DiceGame({key: "play", active: false});

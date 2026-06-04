@@ -83,6 +83,7 @@ M.DiceGame = class extends Phaser.Scene
     create(data)
     {
         this.finished = false;
+        this.victory = false;
         this.usedGrace = false;
 
         this.difficultyVal = data.difficulty;
@@ -291,6 +292,7 @@ M.DiceGame = class extends Phaser.Scene
         if (this.finished) {
             return;
         }
+        this.victory = won;
         if (!won) {
             battleBags[this.tier].push([...this.battle]);
             battleBags[this.teir] = arrShuffle(battleBags[this.tier]);
@@ -604,7 +606,11 @@ M.DiceGame = class extends Phaser.Scene
         let difficulty = this.difficultyVal
         if (battleBags[this.tier].length < 1) {
             difficulty += 1;
+            M.gameDifficulty = difficulty
         }
-        this.scene.restart({difficulty: difficulty});
+        M.gameEnd(this.victory);
+        this.scene.switch("wait");
+        this.scene.stop();
+        //this.scene.restart({difficulty: difficulty});
     }
 }
