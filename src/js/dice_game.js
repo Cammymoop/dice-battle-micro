@@ -412,13 +412,37 @@ M.DiceGame = class extends Phaser.Scene
             console.log("exploding enemy not found in allEnemies");
             return;
         }
-        for (let i = enemyIndex - 1; i < enemyIndex + 1; i += 2) {
-            const e = this.allEnemies[i];
-            if (!e.alive) {
-                console.log("adjacent enemy is not alive " + i);
-                continue;
+        if (enemyIndex > 0) {
+            const leftEnemy = this.allEnemies[enemyIndex - 1];
+            if (!leftEnemy.gone) {
+                leftEnemy.attack(8);
             }
-            e.attack(8);
+        }
+        if (enemyIndex < this.allEnemies.length - 1) {
+            const rightEnemy = this.allEnemies[enemyIndex + 1];
+            if (!rightEnemy.gone) {
+                rightEnemy.attack(8);
+            }
+        }
+    }
+
+    preExplode(explodingEnemy) {
+        const enemyIndex = this.allEnemies.indexOf(explodingEnemy);
+        if (enemyIndex === -1) {
+            console.log("pre-exploding enemy not found in allEnemies");
+            return;
+        }
+        if (enemyIndex > 0) {
+            const leftEnemy = this.allEnemies[enemyIndex - 1];
+            if (leftEnemy.alive) {
+                leftEnemy.preattack(8);
+            }
+        }
+        if (enemyIndex < this.allEnemies.length - 1) {
+            const rightEnemy = this.allEnemies[enemyIndex + 1];
+            if (rightEnemy.alive) {
+                rightEnemy.preattack(8);
+            }
         }
     }
 

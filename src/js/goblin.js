@@ -8,6 +8,7 @@ M.Enemy = class extends Phaser.GameObjects.Container
         this.homePos = M.Vec2.ZERO;
         this.hint = null;
         this.alive = true;
+        this.gone = false;
         this.deathAnimating = false;
     }
 
@@ -284,6 +285,7 @@ M.Goblin = class extends M.Enemy
 
     startDie() {
         this.alive = false;
+        this.gone = true;
         this.deathAnimating = true;
         this.changeAnim(2);
     }
@@ -464,11 +466,15 @@ M.BombGnome = class extends M.Enemy
     preattack(diceValue) {
         if (diceValue > 1) {
             this.alive = false;
+            if (diceValue >= 6) {
+                this.scene.preExplode(this);
+            }
         }
     }
 
     startDie(exploding) {
         this.alive = false;
+        this.gone = true;
         this.deathAnimating = true;
         this.changeAnim(exploding ? 3 : 2);
         if (exploding) {
