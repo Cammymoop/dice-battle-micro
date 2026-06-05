@@ -60,6 +60,24 @@ M.WaitScene = class extends Phaser.Scene
         this.load.spritesheet('dices', 'assets/dices.png', {
             "frameWidth": 30, "frameHeight": 30,
         });
+
+        this.load.audio('boom_sfx', 'assets/sfx/boom.wav');
+        this.load.audio('fwoof_sfx', 'assets/sfx/fwoof.wav');
+        this.load.audio('land_sfx', 'assets/sfx/land.wav');
+        this.load.audio('punch_sfx', 'assets/sfx/punch.wav');
+        this.load.audio('crack_sfx', 'assets/sfx/crack.wav');
+
+        this.load.audio('laugh1_sfx', 'assets/sfx/laugh1.wav');
+        this.load.audio('laugh2_sfx', 'assets/sfx/laugh2.wav');
+        this.load.audio('hoo_sfx', 'assets/sfx/hoo.wav');
+
+        this.load.audio('gnome_grunt1_sfx', 'assets/sfx/gnome_grunt1.wav');
+        this.load.audio('gnome_grunt2_sfx', 'assets/sfx/gnome_grunt2.wav');
+        this.load.audio('gnome_grunt3_sfx', 'assets/sfx/gnome_grunt3.wav');
+
+        this.load.audio('gob1_sfx', 'assets/sfx/gob1.wav');
+        this.load.audio('gob2_sfx', 'assets/sfx/gob2.wav');
+        this.load.audio('gob_grunt_sfx', 'assets/sfx/gob_grunt.wav');
     }
 
     create()

@@ -119,7 +119,9 @@ M.DiceGame = class extends Phaser.Scene
         for (let i = 1; i < this.battle.length; i++) {
             const newEnemy = enemyTypes[this.battle[i]](this);
             const xOffset = ((i - 1) * enemySpacing) - startOffset;
-            newEnemy.setHomePos(this.screenCenterPos().add(new M.Vec2(xOffset, enemyYOffset)));
+            newEnemy.setHomePos(this.screenCenterPos().add(new M.Vec2(
+                xOffset, enemyYOffset + ((i % 2) * 6)
+            )));
             newEnemy.addToDisplayUpdate();
             this.allEnemies.push(newEnemy);
         }
@@ -166,6 +168,7 @@ M.DiceGame = class extends Phaser.Scene
                 dice.addPosVec(M.Vec2.UP.clone().scale(elevation));
 
                 if (dice.roll_timer >= dice.total_roll_time) {
+                    this.sound.play('land_sfx');
                     dice.total_roll_time = ROLL_TOTAL;
                     dice.rolling = false;
                     pickableDice += 1;
@@ -366,8 +369,8 @@ M.DiceGame = class extends Phaser.Scene
                 this.usedGrace = true;
                 this.setDiceTo(dice, Math.floor(Math.random() * 4) + 3);
             } else if (unusedCount - rolledNumbers.length === 1) {
-                greaterThanTwo = false;
-                for (rolledNum of rolledNumbers) {
+                let greaterThanTwo = false;
+                for (let rolledNum of rolledNumbers) {
                     if (rolledNum > 2) {
                         greaterThanTwo = true;
                     }
@@ -497,6 +500,7 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     enemyExploded(explodingEnemy) {
+        this.sound.play('boom_sfx');
         const enemyIndex = this.allEnemies.indexOf(explodingEnemy);
         if (enemyIndex === -1) {
             console.log("exploding enemy not found in allEnemies");
@@ -580,18 +584,20 @@ M.DiceGame = class extends Phaser.Scene
     }
 
     rollDice(num) {
+        this.sound.play('fwoof_sfx');
         let diceSpacing = 52;
         if (num > 1) {
             diceSpacing = Math.min(diceSpacing, Math.round(154 / (num - 1)));
         }
         const center = this.screenCenterPos();
         for (let i = 0; i < num; i++) {
-            const xPos = center.x - ((num - 1) * diceSpacing * 0.5) + (i * diceSpacing) - 10;
+            const xPos = Math.round(center.x - ((num - 1) * diceSpacing * 0.5) + (i * diceSpacing) - 10);
             const dice = this.add.sprite(xPos, center.y + 52, 'dices');
             this.allDice.push(dice);
 
             dice.addPosVec(new M.Vec2(randOffset(3), randOffset(11)));
             dice.roll_target_pos = dice.getPosVec();
+            console.log(dice.roll_target_pos);
             dice.addPosVec(new M.Vec2(randOffset(16), 30));
             dice.roll_from_pos = dice.getPosVec();
 

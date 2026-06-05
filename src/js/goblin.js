@@ -239,6 +239,10 @@ M.Goblin = class extends M.Enemy
                 head.x = this.head_shift * this.anim_state.side;
                 if (Math.random() < 0.05) {
                     head.scaleX *= -1;
+                    if (Math.random() < 0.7) {
+                        const pitchScale = Math.random() * 0.3 + 0.9
+                        this.scene.sound.play('gob2_sfx', {pitch: pitchScale});
+                    }
                 }
                 break;
             case 3:
@@ -254,14 +258,29 @@ M.Goblin = class extends M.Enemy
     attack(diceValue) {
         if (this.shielded) {
             if (diceValue <= 3 || diceValue > 6) {
+                this.scene.sound.play('crack_sfx');
                 this.breakShield();
+
+                if (Math.random() < 0.2) {
+                    this.scene.sound.play('gob_grunt_sfx');
+                }
             } else {
+                const laughNum = Math.floor(Math.random() * 2 + 1);
+                this.scene.sound.play('laugh' + laughNum + '_sfx');
                 this.changeAnim(3); // laugh
             }
         } else {
             if (diceValue <= 2) {
+                const laughNum = Math.floor(Math.random() * 2 + 1);
+                this.scene.sound.play('laugh' + laughNum + '_sfx');
                 this.changeAnim(3); // laugh
             } else {
+                this.scene.sound.play('punch_sfx');
+                if (Math.random() < 0.75) {
+                    this.scene.sound.play('gob_grunt_sfx');
+                } else {
+                    this.scene.sound.play('gob1_sfx');
+                }
                 this.startDie();
             }
         }
@@ -462,9 +481,11 @@ M.BombGnome = class extends M.Enemy
 
     attack(diceValue) {
         if (diceValue <= 1) {
+            this.scene.sound.play('hoo_sfx');
         } else if (diceValue >= 6) {
             this.startDie(true);
         } else {
+            this.scene.sound.play('punch_sfx');
             this.startDie(false);
         }
     }
@@ -486,6 +507,9 @@ M.BombGnome = class extends M.Enemy
         if (exploding) {
             setTimeout(() => this.scene.enemyExploded(this), 150);
             //this.scene.enemyExploded(this);
+        } else {
+            const gruntNum = Math.floor(Math.random() * 3 + 1);
+            this.scene.sound.play('gnome_grunt' + gruntNum + '_sfx');
         }
     }
 
