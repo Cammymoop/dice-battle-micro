@@ -597,7 +597,6 @@ M.DiceGame = class extends Phaser.Scene
 
             dice.addPosVec(new M.Vec2(randOffset(3), randOffset(11)));
             dice.roll_target_pos = dice.getPosVec();
-            console.log(dice.roll_target_pos);
             dice.addPosVec(new M.Vec2(randOffset(16), 30));
             dice.roll_from_pos = dice.getPosVec();
 
